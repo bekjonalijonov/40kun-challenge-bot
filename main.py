@@ -1,3 +1,5 @@
+# main.py – ULTIMATE PREMIUM 40 KUNLIK CHALLENGE BOT (2025)
+
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -10,47 +12,57 @@ import asyncio
 from datetime import datetime, timedelta
 import pytz
 
+# Bot va Dispatcher
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
-
 tashkent = pytz.timezone("Asia/Tashkent")
 
-# PREMIUM VAZIFALAR – HAR KUNI BIR XIL
+# HAR KUNI BIR XIL 3 VAZIFA – PREMIUM FORMATDA
 VAZIFALAR = [
-    "🏃‍♂️ <b>10 000 qadam yurish</b> (Fitnes tracker orqali tekshiring)",
-    "📖 <b>30 daqiqa kitob o'qish</b> (Har qanday kitob – o'zingizni rivojlantiring)",
-    "💧 <b>2 litr suv ichish</b> (Sog'lig'ingiz uchun majburiy)"
+    "Har kuni quyoshdan erta uyg'onish",
+    "Har kuni 1000+ istig'for aytish ",
+    "Har kuni kitob o'qish (minimal 10 min)"
 ]
 
-async def get_participants_count(day: int) -> int:
+# Har bir vazifani necha kishi bajarganini hisoblash
+async def get_task_stats(day: int) -> dict:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            select(func.count(func.distinct(Completion.user_id))).where(Completion.day == day)
+            select(Completion.task, func.count()).where(Completion.day == day).group_by(Completion.task)
         )
-        return result.scalar() or 0
+        stats = {1: 0, 2: 0, 3: 0}
+        for task, count in result.fetchall():
+            stats[task] = count
+        return stats
 
+# Jami qatnashuvchilar (kamida 1 vazifa bajarganlar)
+async def get_total_participants(day: int) -> int:
+    stats = await get_task_stats(day)
+    return sum(stats.values())
+
+# Kanalga post tashlash
 async def send_daily_post(day: int):
-    participants = await get_participants_count(day)
+    stats = await get_task_stats(day)
+    total = await get_total_participants(day)
+
     text = f"""
-🎯 <b>40 KUNLIK ODAT CHALLENGE – {day}-KUN</b>
+40 KUNLIK ODAT CHALLENGE – {day}-KUN
 
-👥 <b>Hozircha {participants} kishi qo'shildi!</b>
+Jami <b>{total}</b> kishi bugun vazifalarni bajarishga kirishdi!
 
-<b>Bugungi 3 ta vazifa (har kuni bir xil):</b>
-{VAZIFALAR[0]}
-{VAZIFALAR[1]}
-{VAZIFALAR[2]}
+Bugungi majburiy 3 vazifa:
+• {VAZIFALAR[0]}
+• {VAZIFALAR[1]}
+• {VAZIFALAR[2]}
 
-<i>Har bir vazifa – yangi odat! Boshqalar bilan birga bajaring va natijani ko'ring.</i>
-
-🔥 Pastdagi tugmalardan belgilang:
+Bajarilganlar soni (real-time):
     """.strip()
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="1-vazifa bajarildi", callback_data=f"done_{day}_1")],
-        [InlineKeyboardButton(text="2-vazifa bajarildi", callback_data=f"done_{day}_2")],
-        [InlineKeyboardButton(text="3-vazifa bajarildi", callback_data=f"done_{day}_3")],
-        [InlineKeyboardButton(text="📖 Batafsil ma'lumot", url=TELEGRAPH_URL)]
+        [InlineKeyboardButton(text=f"1-vazifa bajarildi ✅ {stats[1]}", callback_data=f"done_{day}_1")],
+        [InlineKeyboardButton(text=f"2-vazifa bajarildi ✅ {stats[2]}", callback_data=f"done_{day}_2")],
+        [InlineKeyboardButton(text=f"3-vazifa bajarildi ✅ {stats[3]}", callback_data=f"done_{day}_3")],
+        [InlineKeyboardButton(text="Batafsil ma'lumot", url=TELEGRAPH_URL)]
     ])
 
     msg = await bot.send_message(CHANNEL_ID, text, reply_markup=keyboard)
@@ -59,22 +71,78 @@ async def send_daily_post(day: int):
         session.add(DailyPost(day=day, message_id=msg.message_id))
         await session.commit()
 
+# Tugma bosilganda – real-time yangilash
+@dp.callback_query(F.data.startswith("done_"))
+async def callback_done(callback: CallbackQuery):
+    _, day_str, task_str = callback.data.split("_")
+    day = int(day_str)
+    task = int(task_str)
+    user_id = callback.from_user.id
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Completion).where(
+                Completion.user_id == user_id,
+                Completion.day == day,
+                Completion.task == task
+            )
+        )
+        exists = result.scalar_one_or_none()
+
+        if exists:
+            await session.delete(exists)
+            await session.commit()
+            await callback.answer("Belgini olib tashladingiz")
+        else:
+            session.add(Completion(user_id=user_id, day=day, task=task))
+            await session.commit()
+            await callback.answer("Ajoyib! Hisoblandi")
+
+        # YANGI STATISTIKA
+        stats = await get_task_stats(day)
+        total = await get_total_participants(day)
+
+        new_text = f"""
+40 KUNLIK ODAT CHALLENGE – {day}-KUN
+
+Jami <b>{total}</b> kishi bugun vazifalarni bajarishga kirishdi!
+
+Bugungi majburiy 3 vazifa:
+• {VAZIFALAR[0]}
+• {VAZIFALAR[1]}
+• {VAZIFALAR[2]}
+
+Bajarilganlar soni (real-time):
+        """.strip()
+
+        new_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"1-vazifa bajarildi ✅ {stats[1]}", callback_data=f"done_{day}_1")],
+            [InlineKeyboardButton(text=f"2-vazifa bajarildi ✅ {stats[2]}", callback_data=f"done_{day}_2")],
+            [InlineKeyboardButton(text=f"3-vazifa bajarildi ✅ {stats[3]}", callback_data=f"done_{day}_3")],
+            [InlineKeyboardButton(text="Batafsil ma'lumot", url=TELEGRAPH_URL)]
+        ])
+
+        await bot.edit_message_text(
+            chat_id=CHANNEL_ID,
+            message_id=callback.message.message_id,
+            text=new_text,
+            reply_markup=new_keyboard
+        )
+
+# Admin buyruqlari
 @dp.message(Command("post"))
 async def cmd_post(message: Message):
     if message.from_user.id != ADMIN_ID:
-        await message.answer("❌ Siz admin emassiz!")
-        return
+        return await message.answer("Siz admin emassiz!")
     try:
         day = int(message.text.split()[1])
         if 1 <= day <= 40:
             await send_daily_post(day)
-            await message.answer(f"✅ {day}-kun post kanalda joylandi! (Qatnashuvchilar: {await get_participants_count(day)})")
+            await message.answer(f"{day}-kun post kanalda joylandi!")
         else:
-            await message.answer("1-40 oralig'ida raqam kiriting.")
-    except ValueError:
+            await message.answer("1-40 oralig‘ida raqam kiriting")
+    except:
         await message.answer("Foydalanish: /post 1")
-    except Exception as e:
-        await message.answer(f"Xato: {e}")
 
 @dp.message(Command("test"))
 async def cmd_test(message: Message):
@@ -82,87 +150,33 @@ async def cmd_test(message: Message):
         return
     try:
         day = int(message.text.split()[1])
-        if 1 <= day <= 40:
-            participants = await get_participants_count(day)
-            text = f"""
-🔥 <b>TEST REJIMI – {day}-KUN</b>
+        stats = await get_task_stats(day)
+        total = await get_total_participants(day)
+        text = f"""
+TEST – {day}-KUN
 
-👥 Hozircha {participants} kishi qo'shildi
-
-<b>Vazifalar:</b>
-{VAZIFALAR[0]}
-{VAZIFALAR[1]}
-{VAZIFALAR[2]}
-
-<i>Bu test – kanalga chiqmadi</i>
-            """.strip()
-
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="1-vazifa bajarildi", callback_data=f"done_{day}_1")],
-                [InlineKeyboardButton(text="2-vazifa bajarildi", callback_data=f"done_{day}_2")],
-                [InlineKeyboardButton(text="3-vazifa bajarildi", callback_data=f"done_{day}_3")],
-                [InlineKeyboardButton(text="📖 Batafsil", url=TELEGRAPH_URL)]
-            ])
-
-            await message.answer(text, reply_markup=keyboard)
-            await message.answer("✅ Test muvaffaqiyatli! Endi /post 1 deb kanalda sinang.")
-        else:
-            await message.answer("1-40 gacha raqam kiriting")
-    except ValueError:
+Jami: {total} kishi
+1-vazifa: {stats[1]}
+2-vazifa: {stats[2]}
+3-vazifa: {stats[3]}
+        """.strip()
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"1-vazifa bajarildi ✅ {stats[1]}", callback_data=f"done_{day}_1")],
+            [InlineKeyboardButton(text=f"2-vazifa bajarildi ✅ {stats[2]}", callback_data=f"done_{day}_2")],
+            [InlineKeyboardButton(text=f"3-vazifa bajarildi ✅ {stats[3]}", callback_data=f"done_{day}_3")],
+        ])
+        await message.answer(text, reply_markup=keyboard)
+    except:
         await message.answer("Foydalanish: /test 1")
 
-@dp.callback_query(F.data.startswith("done_"))
-async def callback_done(callback: CallbackQuery):
-    data_parts = callback.data.split("_")
-    day = int(data_parts[1])
-    task = int(data_parts[2])
-    user_id = callback.from_user.id
-
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Completion).where(Completion.user_id == user_id, Completion.day == day, Completion.task == task)
-        )
-        exists = result.scalar()
-        if exists:
-            await session.delete(exists)
-            await session.commit()
-            await callback.answer("❌ Belgini olib tashladingiz")
-        else:
-            session.add(Completion(user_id=user_id, day=day, task=task))
-            await session.commit()
-            await callback.answer("✅ Bajarildi! Raqamlar yangilandi.")
-
-    # Postni yangilash (raqamlar oshishi uchun)
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(DailyPost.message_id).where(DailyPost.day == day))
-        message_id = result.scalar()
-        if message_id:
-            participants = await get_participants_count(day)
-            new_text = f"""
-🎯 <b>40 KUNLIK ODAT CHALLENGE – {day}-KUN</b>
-
-👥 <b>Hozircha {participants} kishi qo'shildi!</b>
-
-<b>Bugungi 3 ta vazifa:</b>
-{VAZIFALAR[0]}
-{VAZIFALAR[1]}
-{VAZIFALAR[2]}
-
-<i>Har bir vazifa – yangi odat!</i>
-
-🔥 Pastdagi tugmalardan belgilang:
-            """.strip()
-
-            await bot.edit_message_text(new_text, CHANNEL_ID, message_id, parse_mode=ParseMode.HTML)
-
+# Avto post – har kuni 05:00 da
 async def auto_daily_post():
     while True:
         now = datetime.now(tashkent)
         next_run = tashkent.localize(datetime.combine(now.date(), datetime.strptime("05:00", "%H:%M").time()))
         if now >= next_run:
             next_run += timedelta(days=1)
-        sleep_sec = (next_run - now).total_seconds()
-        await asyncio.sleep(sleep_sec)
+        await asyncio.sleep((next_run - now).total_seconds())
 
         today = datetime.now(tashkent).date()
         start_date = datetime(2025, 11, 24).date()
@@ -170,10 +184,12 @@ async def auto_daily_post():
 
         if 1 <= day_num <= 40:
             await send_daily_post(day_num)
+            print(f"Avto post: {day_num}-kun tashlandi")
 
+# Startup
 async def on_startup():
     await init_db()
-    print("🚀 Bot ishga tushdi! Admin ID: " + str(ADMIN_ID) + " | Kanal ID: " + str(CHANNEL_ID))
+    print("40 kunlik PREMIUM challenge bot ishga tushdi!")
     asyncio.create_task(auto_daily_post())
 
 async def main():
