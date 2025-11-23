@@ -1,3 +1,5 @@
+import os
+from sqlalchemy import Column, Integer, select, func, UniqueConstraint
 from sqlalchemy import Column, Integer, select, func, UniqueConstraint
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
