@@ -8,7 +8,7 @@ from aiogram.enums import ParseMode
 from config.settings import TOKEN, CHANNEL_ID, ADMIN_ID, TELEGRAPH_URL
 from database.models import AsyncSessionLocal, Completion, DailyPost, init_db
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 
 # Bot va Dispatcher
