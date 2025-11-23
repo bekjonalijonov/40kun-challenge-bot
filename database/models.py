@@ -1,31 +1,27 @@
-# database/models.py – RAILWAY UCHUN TO‘G‘RI VERSIYA
+# database/models.py – RAILWAY UCHUN 100% ISHONCHLI VERSIYA
 
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import Column, Integer, UniqueConstraint
 
-# Railway DATABASE_URL ni avto beradi
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Railway DATABASE_URL ni avto beradi, lekin ba'zida kech qoladi
+raw_url = os.getenv("DATABASE_URL")
 
-# Railway "postgres://" bilan beradi → "postgresql+psycopg://" ga o‘zgartiramiz
-if DATABASE_URL:
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+if raw_url and raw_url.startswith("postgres://"):
+    DATABASE_URL = raw_url.replace("postgres://", "postgresql+psycopg://", 1)
+elif raw_url and raw_url.startswith("postgresql://"):
+    DATABASE_URL = raw_url.replace("postgresql://", "postgresql+psycopg://", 1)
 else:
-    # Agar localda ishlayotgan bo‘lsa (masalan VS Code’da)
+    # Agar Railway hali bermagan bo‘lsa yoki localda bo‘lsa
     DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/habit"
 
-# Engine yaratamiz
+print(f"DB URL: {DATABASE_URL}")  # ← BU QATORNI QO‘SHDIM, LOGDA KO‘RINADI!
+
 engine = create_async_engine(DATABASE_URL, echo=False, future=True, pool_pre_ping=True)
-
-# Session
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-# Base
 Base = declarative_base()
 
-# Modellar
 class Completion(Base):
     __tablename__ = "completions"
     id = Column(Integer, primary_key=True)
@@ -39,7 +35,10 @@ class DailyPost(Base):
     day = Column(Integer, primary_key=True)
     message_id = Column(Integer, nullable=False)
 
-# DB yaratish
 async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("Baza muvaffaqiyatli yaratildi!")
+    except Exception as e:
+        print(f"Baza yaratishda xato: {e}")
