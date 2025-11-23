@@ -3,7 +3,11 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 from config.settings import DATABASE_URL
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+DATABASE_URL = os.getenv("DATABASE_URL")  # Railway avto beradi
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+else:
+    DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost/habit"
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
 
