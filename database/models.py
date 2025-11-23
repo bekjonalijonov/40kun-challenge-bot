@@ -1,3 +1,5 @@
+# database/models.py – RAILWAY UCHUN 100% ISHLAYDIGAN VERSIYA
+
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -5,15 +7,18 @@ from sqlalchemy import Column, Integer, UniqueConstraint
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Railway beradigan URL ni to‘g‘ri formatga o‘tkazamiz
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+# RAILWAY BERAYOTGAN URL – "postgresql://" bilan (psycopg2 uchun)
+# Biz uni "postgresql+psycopg://" ga o‘zgartiramiz (psycopg3 uchun)
+if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+elif DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
 
-# Agar localda bo‘lsa
-if not DATABASE_URL:
-    DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/habit"
+# Agar hali ham to‘g‘ri bo‘lmasa – majburan qo‘shib qo‘yamiz
+if DATABASE_URL and "+psycopg://" not in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://")
 
-print(f"[DB] Ulanish: {DATABASE_URL[:50]}...")  # logda ko‘rinadi
+print(f"[DB] FINAL URL: {DATABASE_URL[:60]}...")  # logda ko‘rinadi
 
 engine = create_async_engine(DATABASE_URL, echo=False, future=True, pool_pre_ping=True)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
