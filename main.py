@@ -7,8 +7,10 @@ from utils.keyboards import get_daily_keyboard
 import asyncio
 from datetime import datetime
 import pytz
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 
-bot = Bot(token=TOKEN, parse_mode="HTML")
+bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 tz = pytz.timezone("Asia/Tashkent")
 
