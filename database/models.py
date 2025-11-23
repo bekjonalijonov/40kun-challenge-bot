@@ -4,10 +4,18 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import Column, Integer, UniqueConstraint
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Railway beradigan URL ni to‘g‘ri formatga o‘tkazamiz
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
 
-engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+# Agar localda bo‘lsa
+if not DATABASE_URL:
+    DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/habit"
+
+print(f"[DB] Ulanish: {DATABASE_URL[:50]}...")  # logda ko‘rinadi
+
+engine = create_async_engine(DATABASE_URL, echo=False, future=True, pool_pre_ping=True)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
 
@@ -27,4 +35,4 @@ class DailyPost(Base):
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("Baza yaratildi!")
+    print("Baza muvaffaqiyatli yaratildi!")
