@@ -4,3 +4,4 @@ psycopg[binary]==3.2.3          # asyncpg o‘rniga bu (hech qanday compile qilm
 apscheduler==3.10.4
 python-dotenv==1.0.1
 pytz==2024.2
+greenlet==3.1.1
