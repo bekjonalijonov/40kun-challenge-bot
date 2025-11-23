@@ -4,7 +4,6 @@ from aiogram.types import CallbackQuery
 from config.settings import TOKEN, CHANNEL_ID, ADMIN_ID
 from database.models import AsyncSessionLocal, Completion, init_db
 from utils.keyboards import get_daily_keyboard
-from utils.scheduler import scheduler
 import asyncio
 from datetime import datetime
 import pytz
@@ -88,11 +87,51 @@ async def cmd_post(msg):
 async def on_startup():
     await init_db()
     print("Bot ishga tushdi! 40 kunlik challenge boshlandi")
-    asyncio.create_task(scheduler())
+    asyncio.create_task(auto_daily_post())
 
 async def main():
     dp.startup.register(on_startup)
     await dp.start_polling(bot)
+
+# ─────────────────────────────────────────────
+# HAR KUN SOAT 05:00 DA AVTO POST (Toshkent vaqti)
+# ─────────────────────────────────────────────
+import asyncio
+from datetime import datetime, time, timedelta
+import pytz
+
+tashkent = pytz.timezone("Asia/Tashkent")
+
+async def auto_daily_post():
+    """Har kuni soat 05:00 da post tashlaydi"""
+    while True:
+        now = datetime.now(tashkent)
+        # Bugungi 05:00 ni hisoblaymiz
+        next_run = tashkent.localize(datetime.combine(now.date(), time(5, 0)))
+        if now >= next_run:
+            next_run += timedelta(days=1)  # ertaga 05:00 ga o‘tkazamiz
+        
+        # Qancha kutish kerakligini hisoblaymiz
+        sleep_seconds = (next_run - now).total_seconds()
+        await asyncio.sleep(sleep_seconds)
+        
+        # Hozirgi kun raqamini hisoblaymiz
+        start_date = datetime.strptime("2025-11-24", "%Y-%m-%d").date()  # challenge boshlanish sanasi
+        day_number = (now.date() - start_date).days + 1
+        
+        if 1 <= day_number <= 40:
+            try:
+                await send_daily_post(day_number)
+                print(f"Avto post: {day_number}-kun yuborildi")
+            except Exception as e:
+                print(f"Avto post xatosi: {e}")
+
+# Startup’da ishga tushiramiz
+async def on_startup():
+    await init_db()
+    print("Bot ishga tushdi! 40 kunlik challenge boshlandi")
+    # Scheduler vazifasini bu yerda ishga tushiramiz
+    asyncio.create_task(auto_daily_post())
 
 if __name__ == "__main__":
     asyncio.run(main())
