@@ -164,5 +164,42 @@ async def main():
     dp.startup.register(on_startup)
     await dp.start_polling(bot)
 
+# YANGI TEST BUYRUQ – faqat admin uchun shaxsiy chatda
+@dp.message(Command("test"))
+async def cmd_test(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    
+    try:
+        day = int(message.text.split()[1])
+        if 1 <= day <= 40:
+            participants = await get_participants_count(day)
+            text = f"""
+🔥 <b>TEST REJIM – {day}-KUN</b>
+
+👥 Hozircha {participants} kishi qo‘shildi
+
+<b>Bugungi vazifalar:</b>
+{VAZIFALAR[0]}
+{VAZIFALAR[1]}
+{VAZIFALAR[2]}
+
+<i>Bu faqat test – kanalga chiqmadi</i>
+            """.strip()
+
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔘 Vazifa 1", callback_data=f"done_{day}_1"),
+                 InlineKeyboardButton(text="🔘 Vazifa 2", callback_data=f"done_{day}_2")],
+                [InlineKeyboardButton(text="🔘 Vazifa 3", callback_data=f"done_{day}_3")],
+                [InlineKeyboardButton(text="Challenge haqida", url=TELEGRAPH_URL)]
+            ])
+
+            await message.answer(text, reply_markup=keyboard)
+            await message.answer("✅ Test post shaxsiy chatda chiqdi!\nEndi /post 1 deb kanalda joylasangiz bo‘ladi")
+        else:
+            await message.answer("1-40 gacha raqam kiriting")
+    except:
+        await message.answer("Foydalanish: /test 1")
+
 if __name__ == "__main__":
     asyncio.run(main())
